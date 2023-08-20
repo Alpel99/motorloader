@@ -1,14 +1,18 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include "wifi_credentials.h" 
-// #include <Servo.h>
+#include <Servo.h>
 
-// #define LED1 2
-// #define LED2 16
+#define LED1 2
+#define LED2 16
+// top view, right side at antenna (D1)
+#define SERVOPIN 5
+
+ESP8266WebServer server(80);
+Servo servo;
 
 const char* hostname1 = "motorloader";
-ESP8266WebServer server(80);
-const int MAX_VALUES = 5000;
+const int MAX_VALUES = 500;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
@@ -24,8 +28,8 @@ void handleRoot() {
 }
 
 void handleSubmit() {
-  // digitalWrite(LED2, HIGH);
-  // digitalWrite(LED1, LOW);
+  digitalWrite(LED2, HIGH);
+  digitalWrite(LED1, LOW);
 
   String csvData = server.arg("csv_data");
   // Parse CSV data and store in an array
@@ -63,7 +67,7 @@ void handleSubmit() {
     String t = "Error processing CSV data...";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
-    // digitalWrite(LED1, HIGH);
+    digitalWrite(LED1, HIGH);
     return;
   }
 
@@ -82,7 +86,7 @@ void handleSubmit() {
     String t = "Max number of values exceeded";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
-    // digitalWrite(LED1, HIGH);
+    digitalWrite(LED1, HIGH);
     return;
   }
 
@@ -92,7 +96,7 @@ void handleSubmit() {
     String t = "Error processing CSV data...";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
-    // digitalWrite(LED1, HIGH);
+    digitalWrite(LED1, HIGH);
   } else {
     String t = "Done processing CSV data...<br>";
     t += "Number of values received: " + String(numValues) + "<br>";
@@ -101,7 +105,7 @@ void handleSubmit() {
     t += "<input type='submit' value='Start Simulation'></form>";
     server.send(200, "text/html", t);
   }
-  // digitalWrite(LED2, LOW);
+  digitalWrite(LED2, LOW);
 }
 
 bool isFloat(const String& str) {
@@ -129,7 +133,7 @@ void handleStop() {
   String t = "Stop Button was pressed.";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   server.send(200, "text/html", t);
-  // digitalWrite(LED1, HIGH);
+  digitalWrite(LED1, HIGH);
 }
 
 void handleStart() {
@@ -141,7 +145,7 @@ void handleStart() {
     String t = "Error in timestep value!";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
-    // digitalWrite(LED1, HIGH);
+    digitalWrite(LED1, HIGH);
     return;
   }
 
@@ -153,22 +157,54 @@ void handleStart() {
   runloop = true;
   int ctr = 0;
   while(runloop && ctr < numValues) {
-    // digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
-    //servo write csvValues[ctr];
-    Serial.println(csvValues[ctr]);
+    digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
+    //servo write csvValues[ctr];    
+    int val = map(csvValues[ctr],0, 1, 1100, 1900); // maps potentiometer values to PWM value.
+    if(val>1900) val = 1900;
+    if(val<1100) val = 1100;
+      
+    servo.writeMicroseconds(val);
+    Serial.print(csvValues[ctr]);
+    Serial.print("->");
+    Serial.println(val);
+
     server.handleClient();
     delay(timestep);
     ++ctr;
   }
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED1, HIGH);
   Serial.println("done");
+  while(runloop) { // ok in morse
+    server.handleClient();
+    digitalWrite(LED1, LOW);
+    delay(100);
+    digitalWrite(LED1, HIGH);
+    delay(300);
+    server.handleClient();
+    digitalWrite(LED1, LOW);
+    delay(300);
+    digitalWrite(LED1, HIGH);
+    delay(300);
+    server.handleClient();
+    digitalWrite(LED1, LOW);
+    delay(100);
+    digitalWrite(LED1, HIGH);
+    delay(300);
+    server.handleClient();
+    delay(700);
+  }
 }
 
 void setup() {
-  // pinMode(LED1, OUTPUT);
-  // pinMode(LED2, OUTPUT);
-  // digitalWrite(LED1, LOW);
-  // digitalWrite(LED2, LOW);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
 
+  servo.attach(SERVOPIN);
+  servo.writeMicroseconds(1500); // send "stop" signal to ESC. Also necessary to arm the ESC.
+  
   delay(1000);
   Serial.begin(115200);
   WiFi.hostname(hostname1);
@@ -178,18 +214,20 @@ Serial.println("\nConnecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    // digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
+    digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
   }
   Serial.println("\nConnected to WiFi");
   Serial.print("Station IP Address: ");
   Serial.println(WiFi.localIP());
-
+  
   server.on("/", HTTP_GET, handleRoot);
   server.on("/submit", HTTP_POST, handleSubmit);
   server.on("/stop", HTTP_GET, handleStop);
   server.on("/start", HTTP_POST, handleStart);
 
-  // digitalWrite(LED1, LOW);  
+  digitalWrite(LED1, LOW);
+  server.begin();
+  
 }
 
 void loop() {

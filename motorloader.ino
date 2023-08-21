@@ -183,22 +183,20 @@ void handleStart() {
 void blink_r() {
     digitalWrite(LED1, HIGH);
     server.handleClient();
-    delay(550);
-    server.handleClient();
-    delay(500);
+    delay(700);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(150);
+    delay(100);
     digitalWrite(LED1, HIGH);
-    delay(450);
+    delay(300);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(450);
+    delay(300);
     digitalWrite(LED1, HIGH);
-    delay(450);
+    delay(300);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(150);
+    delay(100);
 }
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {

@@ -23,6 +23,8 @@ Servo servo;
 
 const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
+// doesn't run like that, needs more space
+// ATTENTION: there is some limit on transferred data with the post requests, too precise float numbers lead to not all values being read
 const int MAX_VALUES = 1200;
 float csvValues[MAX_VALUES];
 int numValues = 0;
@@ -36,7 +38,6 @@ unsigned long ledTime;
 
 void handleRoot() {
   ctr = -1;
-  digitalWrite(LED1, LOW);
   String html = "<form action='/submit' method='POST'>";
   html += "CSV Data: <input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
@@ -51,10 +52,6 @@ void handleSubmit() {
   digitalWrite(LED1, LOW);
 
   String csvData = server.arg("csv_data");
-  // Parse CSV data and store in an array
-  // Provide feedback to the user
-  String t = "CSV Data received, processing...";
-  // server.send(200, "text/html ", t);
   // Serial.println("sent: " + csvData);
 
   // Parse CSV data and store in array
@@ -131,11 +128,11 @@ void handleSubmit() {
 bool isFloat(const String& str) {
   for (size_t i = 0; i < str.length(); i++) {
     char c = str.charAt(i);
-    if (isdigit(c) || c == '.' || c == '-' || c == '+') {
-      return true;
+    if (!isdigit(c) && c != '.' && c != '-' && c != '+') {
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 bool isInt(const String& str) {
@@ -184,23 +181,24 @@ void handleStart() {
 
 // ok in morse
 void blink_r() {
+    digitalWrite(LED1, HIGH);
+    server.handleClient();
+    delay(550);
+    server.handleClient();
+    delay(500);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(100);
+    delay(150);
     digitalWrite(LED1, HIGH);
-    delay(300);
+    delay(450);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(300);
+    delay(450);
     digitalWrite(LED1, HIGH);
-    delay(300);
+    delay(450);
     server.handleClient();
     digitalWrite(LED1, LOW);
-    delay(100);
-    digitalWrite(LED1, HIGH);
-    delay(300);
-    server.handleClient();
-    delay(700);
+    delay(150);
 }
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {

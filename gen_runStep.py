@@ -19,4 +19,4 @@ plt.plot(np.cumsum(res[1::2]), res[::2])
 plt.show()
 print(res)
 
-np.savetxt("res_step.txt", res, delimiter=",", newline=",", fmt="%.6f")
+np.savetxt("res_step.txt", res, delimiter=",", newline=",", fmt="%.3f")

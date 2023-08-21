@@ -3,6 +3,16 @@
 #include "wifi_credentials.h" 
 #include <Servo.h>
 
+/* wifi credentials boilerplate
+#ifndef WIFI_CREDENTIALS_H
+#define WIFI_CREDENTIALS_H
+
+const char* ssid = "ssid";
+const char* password = "password";
+
+#endif
+*/
+
 #define LED1 2
 #define LED2 16
 // top view, right side at antenna (D1)
@@ -12,12 +22,20 @@ ESP8266WebServer server(80);
 Servo servo;
 
 const char* hostname1 = "motorloader";
-const int MAX_VALUES = 500;
+// 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
+const int MAX_VALUES = 12000;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
+int ctr = 0;
+int timestep = 1000;
+bool readStep = false;
+unsigned long startTime;
+unsigned long runTime;
+unsigned long ledTime;
 
 void handleRoot() {
+  ctr = 0;
   String html = "<form action='/submit' method='POST'>";
   html += "CSV Data: <input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
@@ -102,6 +120,7 @@ void handleSubmit() {
     t += "Number of values received: " + String(numValues) + "<br>";
     t += "<form t action='/start' method='POST'>";
     t += "Timestep(ms): <input type='text' name='timestep'><br>";
+    t += "ReadStep (every 2nd value as delay (int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
     t += "<input type='submit' value='Start Simulation'></form>";
     server.send(200, "text/html", t);
   }
@@ -138,44 +157,32 @@ void handleStop() {
 
 void handleStart() {
   String dTime = server.arg("timestep");
-  int timestep;
-  if (isInt(dTime)) {
-    timestep = dTime.toInt();
-  } else {
-    String t = "Error in timestep value!";
-    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
-    server.send(200, "text/html", t);
-    digitalWrite(LED1, HIGH);
-    return;
+  readStep = server.arg("stepread") == "on"; // "on" when checkbox is checked
+  if(!readStep) {
+    if (isInt(dTime)) {
+      timestep = dTime.toInt();
+    } else {
+      String t = "Error in timestep value!";
+      t += "<form action='/'><input type='submit' value='Back to Form'></form>";
+      server.send(200, "text/html", t);
+      digitalWrite(LED1, HIGH);
+      return;
+    }
   }
+
+  runloop = true;
+  ctr = 0;
+  runTime = millis();
+  ledTime = millis();
 
   String t = "Running Simulation now";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   t += "<form action='/stop'><input type='submit' value='Stop Run'></form>";
   server.send(200, "text/html", t);
+}
 
-  runloop = true;
-  int ctr = 0;
-  while(runloop && ctr < numValues) {
-    digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
-    //servo write csvValues[ctr];    
-    int val = map(csvValues[ctr],0, 1, 1100, 1900); // maps potentiometer values to PWM value.
-    if(val>1900) val = 1900;
-    if(val<1100) val = 1100;
-      
-    servo.writeMicroseconds(val);
-    Serial.print(csvValues[ctr]);
-    Serial.print("->");
-    Serial.println(val);
-
-    server.handleClient();
-    delay(timestep);
-    ++ctr;
-  }
-  digitalWrite(LED2, LOW);
-  digitalWrite(LED1, HIGH);
-  Serial.println("done");
-  while(runloop) { // ok in morse
+// ok in morse
+void blink_r() {
     server.handleClient();
     digitalWrite(LED1, LOW);
     delay(100);
@@ -193,7 +200,6 @@ void handleStart() {
     delay(300);
     server.handleClient();
     delay(700);
-  }
 }
 
 void setup() {
@@ -227,11 +233,45 @@ Serial.println("\nConnecting to WiFi");
 
   digitalWrite(LED1, LOW);
   server.begin();
-  
 }
 
 void loop() {
   server.handleClient();
+
+  // work loop
+
+  if(runloop && ctr < numValues) {
+    digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
+    //servo write csvValues[ctr];    
+    int val = map(csvValues[ctr],0, 1, 1100, 1900); // maps potentiometer values to PWM value.
+    if(val>1900) val = 1900;
+    if(val<1100) val = 1100;
+    servo.writeMicroseconds(val);
+    Serial.print(String(csvValues[ctr++]) + "->" + String(val));
+
+    if(readStep) {
+      timestep = static_cast<int>(csvValues[ctr++]);
+    }
+
+    startTime = millis();
+    while (millis() - startTime < timestep) {
+      server.handleClient();
+      if(millis() - ledTime > 1000) {
+        ledTime = millis();
+        digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
+      }
+    }
+  }
+  // work done
+  if (ctr >= numValues) {
+    if(runloop) {
+      runloop = false;
+      digitalWrite(LED2, LOW);
+      digitalWrite(LED1, HIGH);
+      Serial.println("done in " + String((millis()-runTime)/1000) + "ms");
+    }
+    blink_r();
+  }
 }
 
 /*

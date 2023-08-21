@@ -23,7 +23,7 @@ Servo servo;
 
 const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
-const int MAX_VALUES = 12000;
+const int MAX_VALUES = 1200;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
@@ -35,7 +35,8 @@ unsigned long runTime;
 unsigned long ledTime;
 
 void handleRoot() {
-  ctr = 0;
+  ctr = -1;
+  digitalWrite(LED1, LOW);
   String html = "<form action='/submit' method='POST'>";
   html += "CSV Data: <input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
@@ -202,6 +203,17 @@ void blink_r() {
     delay(700);
 }
 
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+  // Ensure that x is within the input range
+  x = constrain(x, in_min, in_max);
+  
+  // Calculate the proportion of x within the input range
+  float proportion = (x - in_min) / (in_max - in_min);
+  
+  // Map the proportion to the output range and return the result
+  return out_min + proportion * (out_max - out_min);
+}
+
 void setup() {
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
@@ -243,12 +255,11 @@ void loop() {
   if(runloop && ctr < numValues) {
     digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
     //servo write csvValues[ctr];    
-    int val = map(csvValues[ctr],0, 1, 1100, 1900); // maps potentiometer values to PWM value.
-    if(val>1900) val = 1900;
-    if(val<1100) val = 1100;
+    int val = static_cast<int>(mapFloat(csvValues[ctr],0.0, 1.0, 1100, 1900)); // maps potentiometer values to PWM value.
+    val = constrain(val, 1100, 1900);
     servo.writeMicroseconds(val);
-    Serial.print(String(csvValues[ctr++]) + "->" + String(val));
-
+    Serial.println(String(csvValues[ctr]) + "->" + String(val));
+    ctr++;
     if(readStep) {
       timestep = static_cast<int>(csvValues[ctr++]);
     }
@@ -268,7 +279,7 @@ void loop() {
       runloop = false;
       digitalWrite(LED2, LOW);
       digitalWrite(LED1, HIGH);
-      Serial.println("done in " + String((millis()-runTime)/1000) + "ms");
+      Serial.println("done in " + String((millis()-runTime)/1000.0) + "s");
     }
     blink_r();
   }

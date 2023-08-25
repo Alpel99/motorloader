@@ -3,7 +3,7 @@ import numpy as np
 
 MAX_VALUES = 120
 
-f = lambda x: abs(0.5*np.sin(x*2*np.pi/MAX_VALUES))+0.5
+f = lambda x: abs(0.05*np.sin(x*2*np.pi/MAX_VALUES))+0.05
 power = [f(x) for x in range(0,MAX_VALUES)]
 
 s = lambda x: (x**2)*50+50

@@ -4,22 +4,22 @@
 #include <Servo.h>
 
 /* wifi credentials boilerplate
-#ifndef WIFI_CREDENTIALS_H
-#define WIFI_CREDENTIALS_H
 
-const char* ssid = "ssid";
-const char* password = "password";
-
-#endif
 */
 
 #define LED1 2
 #define LED2 16
-// top view, right side at antenna (D1)
+// top view, right side at antenna, 2nd pin from top (D1)
 #define SERVOPIN 5
 
 ESP8266WebServer server(80);
+// using this for the aerostar rvs 80a ESC
+// 0/stop/arm = 1000, max=1900 (?)
 Servo servo;
+// stop/signal to arm
+#define SERVOMIN 1000
+// max full load, > than SERVOMIN
+#define SERVOMAX 1900
 
 const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
@@ -37,17 +37,17 @@ unsigned long runTime;
 unsigned long ledTime;
 
 void handleRoot() {
-  ctr = -1;
   String html = "<form action='/submit' method='POST'>";
   html += "CSV Data: <input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
 
-  html += "<form method='POST' action='/stop'>";
+  html += "<form method='GET' action='/stop'>";
   html += "<input type='submit' value='Stop Loop'></form>";
   server.send(200, "text/html", html);
 }
 
 void handleSubmit() {
+  ctr = -1;
   digitalWrite(LED2, HIGH);
   digitalWrite(LED1, LOW);
 
@@ -70,10 +70,8 @@ void handleSubmit() {
     if (csvValue.length() > 0) {
       if(isFloat(csvValue)) {
         csvValues[valueIndex] = csvValue.toFloat();
-      } else
-        err = true;
-    } else
-      err = true;
+      } else err = true;
+    } else err = true;
     startIndex = endIndex + 1;
     endIndex = csvData.indexOf(',', startIndex);
     valueIndex++;
@@ -93,10 +91,8 @@ void handleSubmit() {
     if (csvValue.length() > 0) {
       if(isFloat(csvValue)) {
         csvValues[valueIndex] = csvValue.toFloat();
-      } else
-        err = true;
-    } else
-      err = true;
+      } else err = true;
+    } else err = true;
     valueIndex++;
   } else {
     String t = "Max number of values exceeded";
@@ -128,9 +124,8 @@ void handleSubmit() {
 bool isFloat(const String& str) {
   for (size_t i = 0; i < str.length(); i++) {
     char c = str.charAt(i);
-    if (!isdigit(c) && c != '.' && c != '-' && c != '+') {
+    if (!isdigit(c) && c != '.' && c != '-' && c != '+')
       return false;
-    }
   }
   return true;
 }
@@ -138,14 +133,14 @@ bool isFloat(const String& str) {
 bool isInt(const String& str) {
   for (size_t i = 0; i < str.length(); i++) {
     char c = str.charAt(i);
-    if (!isdigit(c)) {
+    if (!isdigit(c))
       return false;
-    }
   }
   return true;
 }
 
 void handleStop() {
+  servo.writeMicroseconds(SERVOMIN); // stop
   runloop = false;
   String t = "Stop Button was pressed.";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
@@ -179,24 +174,20 @@ void handleStart() {
   server.send(200, "text/html", t);
 }
 
-// ok in morse
+// r in morse = ok
 void blink_r() {
     digitalWrite(LED1, HIGH);
-    server.handleClient();
-    delay(700);
-    server.handleClient();
+    customDelay(700);
     digitalWrite(LED1, LOW);
-    delay(100);
+    customDelay(100);
     digitalWrite(LED1, HIGH);
-    delay(300);
-    server.handleClient();
+    customDelay(300);
     digitalWrite(LED1, LOW);
-    delay(300);
+    customDelay(300);
     digitalWrite(LED1, HIGH);
-    delay(300);
-    server.handleClient();
+    customDelay(300);
     digitalWrite(LED1, LOW);
-    delay(100);
+    customDelay(100);
 }
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
@@ -210,16 +201,24 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
   return out_min + proportion * (out_max - out_min);
 }
 
+void customDelay(int waitTime) {
+    startTime = millis();
+    while (millis() - startTime < waitTime) {
+      server.handleClient();
+    }
+}
+
+
 void setup() {
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
 
-  servo.attach(SERVOPIN);
-  servo.writeMicroseconds(1500); // send "stop" signal to ESC. Also necessary to arm the ESC.
-  
+  servo.attach(SERVOPIN);  
   delay(1000);
+  servo.writeMicroseconds(SERVOMIN); // send "stop" signal to ESC. Also necessary to arm the ESC.
+
   Serial.begin(115200);
   WiFi.hostname(hostname1);
   WiFi.begin(ssid, password);
@@ -246,15 +245,18 @@ Serial.println("\nConnecting to WiFi");
 void loop() {
   server.handleClient();
 
-  // work loop
+  // stop servo if nothing is happening
+  if(!runloop) {
+    servo.writeMicroseconds(SERVOMIN); // stop/arm
+  }
 
+  // work loop
   if(runloop && ctr < numValues) {
     digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
-    //servo write csvValues[ctr];    
-    int val = static_cast<int>(mapFloat(csvValues[ctr],0.0, 1.0, 1100, 1900)); // maps potentiometer values to PWM value.
-    val = constrain(val, 1100, 1900);
+    //servo write csvValues[ctr];
+    int val = static_cast<int>(mapFloat(csvValues[ctr],0.0, 1.0, SERVOMIN, SERVOMAX)); // maps potentiometer values to PWM value.
     servo.writeMicroseconds(val);
-    Serial.println(String(csvValues[ctr]) + "->" + String(val));
+    Serial.println(String(csvValues[ctr],4) + "->" + String(val));
     ctr++;
     if(readStep) {
       timestep = static_cast<int>(csvValues[ctr++]);
@@ -275,32 +277,8 @@ void loop() {
       runloop = false;
       digitalWrite(LED2, LOW);
       digitalWrite(LED1, HIGH);
-      Serial.println("done in " + String((millis()-runTime)/1000.0) + "s");
+      Serial.println("done in " + String((millis()-runTime)/1000.0) + "s/ " + String((millis()-runTime)/60000.0) + "min");
     }
     blink_r();
   }
 }
-
-/*
-#include <Servo.h>
-
-byte servoPin = 9; // signal pin for the ESC.
-byte potentiometerPin = A0; // analog input pin for the potentiometer.
-Servo servo;
-
-void setup() {
-    servo.attach(servoPin);
-    servo.writeMicroseconds(1500); // send "stop" signal to ESC. Also necessary to arm the ESC.
-
-    delay(7000); // delay to allow the ESC to recognize the stopped signal.
-}
-
-void loop() {
-
-    int potVal = analogRead(potentiometerPin); // read input from potentiometer.
-
-    int pwmVal = map(potVal,0, 1023, 1100, 1900); // maps potentiometer values to PWM value.
-
-    servo.writeMicroseconds(pwmVal); // Send signal to ESC.
-
-*/

@@ -1,6 +1,7 @@
 # Motorloader
 
 Tool to test generated load curves (python scripts) via an esp8266 as a digital servo tester (pwm input to esc).
+Used for load testing of a fuel cell @ TU Wien Space Team
 
 ## Features
 
@@ -32,3 +33,8 @@ const char* password = "ml_pw321"; // password
 
 #endif
 ```
+
+## ToDo
+- last step of progress bar gone ?!
+- make csv processing with socket?
+- test without socket

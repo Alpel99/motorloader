@@ -3,9 +3,14 @@
 #include "wifi_credentials.h" 
 #include <Servo.h>
 
-/* wifi credentials boilerplate
-
-*/
+// (un)comment for use of webserver
+// used to send additional info (while running) to browser, needs stable internet connection
+#define WEBSOCKET
+#ifdef WEBSOCKET
+#include "websocket.h"
+#else
+String generateWebSocketHtml(bool append) {return "";}
+#endif
 
 #define LED1 2
 #define LED2 16
@@ -35,6 +40,7 @@ bool readStep = false;
 unsigned long startTime;
 unsigned long runTime;
 unsigned long ledTime;
+unsigned long maxTime = 0;
 
 void handleRoot() {
   String html = "<form action='/submit' method='POST'>";
@@ -42,7 +48,8 @@ void handleRoot() {
   html += "<input type='submit' value='Submit'></form>";
 
   html += "<form method='GET' action='/stop'>";
-  html += "<input type='submit' value='Stop Loop'></form>";
+  html += "<input type='submit' value='Stop Run'></form>";
+  html += generateWebSocketHtml(false);
   server.send(200, "text/html", html);
 }
 
@@ -114,7 +121,7 @@ void handleSubmit() {
     t += "Number of values received: " + String(numValues) + "<br>";
     t += "<form t action='/start' method='POST'>";
     t += "Timestep(ms): <input type='text' name='timestep'><br>";
-    t += "ReadStep (every 2nd value as delay (int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
+    t += "ReadStep (every 2nd value as delay (cast to int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
     t += "<input type='submit' value='Start Simulation'></form>";
     server.send(200, "text/html", t);
   }
@@ -154,12 +161,18 @@ void handleStart() {
   if(!readStep) {
     if (isInt(dTime)) {
       timestep = dTime.toInt();
+      maxTime = numValues*timestep;
     } else {
       String t = "Error in timestep value!";
       t += "<form action='/'><input type='submit' value='Back to Form'></form>";
       server.send(200, "text/html", t);
       digitalWrite(LED1, HIGH);
       return;
+    }
+  } else {
+    maxTime = 0;
+    for(int i = 1; i <=numValues-1; i+=2) {
+      maxTime += csvValues[i];
     }
   }
 
@@ -171,6 +184,7 @@ void handleStart() {
   String t = "Running Simulation now";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   t += "<form action='/stop'><input type='submit' value='Stop Run'></form>";
+  t += generateWebSocketHtml(false);
   server.send(200, "text/html", t);
 }
 
@@ -202,12 +216,34 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
 }
 
 void customDelay(int waitTime) {
-    startTime = millis();
-    while (millis() - startTime < waitTime) {
-      server.handleClient();
+    int initTime = millis();
+    while (millis() - initTime < waitTime) {
+      handleLoop();
+      if(runloop) break;
     }
 }
 
+void customPrint(String info) {
+  Serial.println(info);
+#ifdef WEBSOCKET
+  // unsigned long startWait = millis();
+  while(webSocket.connectedClients() == 0 && ctr < 2) {
+    customDelay(10);
+  }
+  if(runloop) {
+    customProgressInfo(info, runTime, maxTime);
+  } else {
+    webSocket.broadcastTXT(info + "<br>");
+  }
+#endif
+}
+
+void handleLoop() {
+  server.handleClient();
+#ifdef WEBSOCKET
+  webSocket.loop();
+#endif
+}
 
 void setup() {
   pinMode(LED1, OUTPUT);
@@ -237,13 +273,19 @@ Serial.println("\nConnecting to WiFi");
   server.on("/submit", HTTP_POST, handleSubmit);
   server.on("/stop", HTTP_GET, handleStop);
   server.on("/start", HTTP_POST, handleStart);
+  server.onNotFound(handleRoot); // Serve the root page for any other URL
 
   digitalWrite(LED1, LOW);
   server.begin();
+#ifdef WEBSOCKET
+  webSocket.begin();
+  // don't need any events from client to server (all done in html)
+  // webSocket.onEvent(handleLoop());
+#endif
 }
 
 void loop() {
-  server.handleClient();
+  handleLoop();
 
   // stop servo if nothing is happening
   if(!runloop) {
@@ -256,15 +298,16 @@ void loop() {
     //servo write csvValues[ctr];
     int val = static_cast<int>(mapFloat(csvValues[ctr],0.0, 1.0, SERVOMIN, SERVOMAX)); // maps potentiometer values to PWM value.
     servo.writeMicroseconds(val);
-    Serial.println(String(csvValues[ctr],4) + "->" + String(val));
+    // customPrint(String(csvValues[ctr],4) + "->" + String(val));
     ctr++;
     if(readStep) {
       timestep = static_cast<int>(csvValues[ctr++]);
     }
+    customPrint(String(val) + " for " + String(timestep) + "ms");
 
     startTime = millis();
     while (millis() - startTime < timestep) {
-      server.handleClient();
+      handleLoop();
       if(millis() - ledTime > 1000) {
         ledTime = millis();
         digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
@@ -277,7 +320,7 @@ void loop() {
       runloop = false;
       digitalWrite(LED2, LOW);
       digitalWrite(LED1, HIGH);
-      Serial.println("done in " + String((millis()-runTime)/1000.0) + "s/ " + String((millis()-runTime)/60000.0) + "min");
+      customPrint("done in " + String((millis()-runTime)/1000.0) + "s/" + String((millis()-runTime)/60000.0) + "min");
     }
     blink_r();
   }

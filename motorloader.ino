@@ -44,7 +44,7 @@ unsigned long ledTime;
 unsigned long maxTime = 0;
 
 void handleRoot() {
-  String html = "<form action='/submit' method='POST'>";
+  String html = genDarkmodeCss() + "<form action='/submit' method='POST'>";
   html += "CSV Data: <input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
 
@@ -82,7 +82,7 @@ void handleSubmit() {
   }
 
   if (err) {
-    String t = "Error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+    String t = genDarkmodeCss() + "Error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
@@ -99,7 +99,7 @@ void handleSubmit() {
     } else err = true;
     valueIndex++;
   } else {
-    String t = "Max number of values exceeded or error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+    String t = genDarkmodeCss() + "Max number of values exceeded or error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
@@ -109,12 +109,12 @@ void handleSubmit() {
   numValues = valueIndex;
 
   if (err) {
-    String t = "Something went wrong processing the csv data last index: " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+    String t = genDarkmodeCss() + "Something went wrong processing the csv data last index: " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
   } else {
-    String t = "Done processing CSV data...<br>";
+    String t = genDarkmodeCss() + "Done processing CSV data...<br>";
     t += "Number of values received: " + String(numValues) + "<br>";
     t += "Last entry: " + csvValue + "<br>";
     t += "<form t action='/start' method='POST'>";
@@ -148,7 +148,7 @@ bool isInt(const String& str) {
 void handleStop() {
   servo.writeMicroseconds(SERVOMIN); // stop
   runloop = false;
-  String t = "Stop Button was pressed.";
+  String t = genDarkmodeCss() + "Stop Button was pressed.";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   server.send(200, "text/html", t);
   digitalWrite(LED1, HIGH);
@@ -162,7 +162,7 @@ void handleStart() {
       timestep = dTime.toInt();
       maxTime = numValues*timestep;
     } else {
-      String t = "Error in timestep value!";
+      String t = genDarkmodeCss() + "Error in timestep value!";
       t += "<form action='/'><input type='submit' value='Back to Form'></form>";
       server.send(200, "text/html", t);
       digitalWrite(LED1, HIGH);
@@ -180,11 +180,16 @@ void handleStart() {
   runTime = millis();
   ledTime = millis();
 
-  String t = "Running Simulation now";
+  String t = genDarkmodeCss() + "Running Simulation now";
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   t += "<form action='/stop'><input type='submit' value='Stop Run'></form>";
   t += generateWebSocketHtml(false);
   server.send(200, "text/html", t);
+}
+
+//generate responsive darkmode css
+String genDarkmodeCss() {
+  return "<style>body{background-color:white;color:black}@media(prefers-color-scheme:dark){body{background-color:darkgray;color:white}}</style>";
 }
 
 // r in morse = ok

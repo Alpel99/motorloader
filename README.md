@@ -10,6 +10,7 @@ Used for load testing of a fuel cell @ TU Wien Space Team
 - Process CSV data from the web form to adjust servo motor control.
 - Toggle step read mode using a checkbox input.
     - This means, every 2nd item in the list is used as a delay (in ms)
+- Option to comment `#define WEBSOCKET` to use this connection to relay additional data while running the simulation (progress etc)
 
 ## Setup and Usage
 
@@ -19,7 +20,7 @@ Used for load testing of a fuel cell @ TU Wien Space Team
 4. Connect your ESP8266 board and upload the code to the board.
 5. Access the web interface by entering the board's IP address or its hostname `motorloader/` in a web browser.
 6. Follow the web interface instructions to control the servo motor and adjust parameters.
-7. Use the example curves or adapt the templates to create your own csv input data.
+7. Use the example curves or adapt the python script templates to create your own csv input data. 
     - input should not end on a comma -> be sure to not copy the last "," from the saved files
 
 ## _wlan_credentials.h_ boilerplate
@@ -34,7 +35,16 @@ const char* password = "ml_pw321"; // password
 #endif
 ```
 
-## ToDo
-- last step of progress bar gone ?!
-- make csv processing with socket?
-- test without socket
+## LED overview
+- LED1: at antenna
+    - on: ready to receive csv data
+    - changing every 0.5s: trying to connect to wlan
+    - blinking r in morse (.-.): connected to wlan/completed load run 
+    - changing every 1s: running in simulation loop, just shows everything is working
+- LED2: near USB port
+    - on: everything OK
+    - off: error processing CSV data
+    - blinking: changes on/off every time a new value is given to the ESC
+
+## possible ToDo
+- additional error/ignore double/last comma in csv processing

@@ -5,7 +5,7 @@
 
 // (un)comment for use of webserver
 // used to send additional info (while running) to browser, needs stable internet connection
-#define WEBSOCKET
+// #define WEBSOCKET
 #ifdef WEBSOCKET
 #include "websocket.h"
 #else
@@ -35,7 +35,7 @@ float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
 int ctr = 0;
-int timestep = 1000;
+int timeRoadmapstep = 1000;
 bool readStep = false;
 unsigned long startTime;
 unsigned long runTime;
@@ -65,15 +65,11 @@ void handleSubmit() {
   int startIndex = 0;
   int endIndex = csvData.indexOf(',');
   int valueIndex = 0;
-
   bool err = false;
+  String csvValue;
 
   while (endIndex != -1 && valueIndex < MAX_VALUES && !err) {
-    String csvValue = csvData.substring(startIndex, endIndex);
-    // Serial.println(csvValue);
-    // Serial.println(csvValue.length() > 0);
-    // Serial.println(isFloat(csvValue));
-
+    csvValue = csvData.substring(startIndex, endIndex);
     if (csvValue.length() > 0) {
       if(isFloat(csvValue)) {
         csvValues[valueIndex] = csvValue.toFloat();
@@ -85,7 +81,7 @@ void handleSubmit() {
   }
 
   if (err) {
-    String t = "Error processing CSV data...";
+    String t = "Error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
@@ -94,7 +90,7 @@ void handleSubmit() {
 
   // Store the last value
   if (valueIndex < MAX_VALUES) {
-    String csvValue = csvData.substring(startIndex);
+    csvValue = csvData.substring(startIndex);
     if (csvValue.length() > 0) {
       if(isFloat(csvValue)) {
         csvValues[valueIndex] = csvValue.toFloat();
@@ -102,7 +98,7 @@ void handleSubmit() {
     } else err = true;
     valueIndex++;
   } else {
-    String t = "Max number of values exceeded";
+    String t = "Max number of values exceeded or error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
@@ -112,17 +108,19 @@ void handleSubmit() {
   numValues = valueIndex;
 
   if (err) {
-    String t = "Error processing CSV data...";
+    String t = "Something went wrong processing the csv data last index: " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
     t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
     digitalWrite(LED1, HIGH);
   } else {
     String t = "Done processing CSV data...<br>";
     t += "Number of values received: " + String(numValues) + "<br>";
+    t += "Last entry: " + csvValue + "<br>";
     t += "<form t action='/start' method='POST'>";
     t += "Timestep(ms): <input type='text' name='timestep'><br>";
     t += "ReadStep (every 2nd value as delay (cast to int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
     t += "<input type='submit' value='Start Simulation'></form>";
+    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
     server.send(200, "text/html", t);
   }
   digitalWrite(LED2, LOW);
@@ -228,7 +226,8 @@ void customPrint(String info) {
 #ifdef WEBSOCKET
   // unsigned long startWait = millis();
   while(webSocket.connectedClients() == 0 && ctr < 2) {
-    customDelay(10);
+    customDelay(25);
+    runTime = millis();
   }
   if(runloop) {
     customProgressInfo(info, runTime, maxTime);
@@ -259,7 +258,7 @@ void setup() {
   WiFi.hostname(hostname1);
   WiFi.begin(ssid, password);
 
-Serial.println("\nConnecting to WiFi");
+  Serial.println("\nConnecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -291,13 +290,14 @@ void loop() {
   if(!runloop) {
     servo.writeMicroseconds(SERVOMIN); // stop/arm
   }
-
+Roadmap
   // work loop
   if(runloop && ctr < numValues) {
     digitalWrite(LED2, digitalRead(LED2) ^ HIGH);
     //servo write csvValues[ctr];
     int val = static_cast<int>(mapFloat(csvValues[ctr],0.0, 1.0, SERVOMIN, SERVOMAX)); // maps potentiometer values to PWM value.
     servo.writeMicroseconds(val);
+    startTime = millis();
     // customPrint(String(csvValues[ctr],4) + "->" + String(val));
     ctr++;
     if(readStep) {
@@ -305,23 +305,30 @@ void loop() {
     }
     customPrint(String(val) + " for " + String(timestep) + "ms");
 
-    startTime = millis();
     while (millis() - startTime < timestep) {
       handleLoop();
       if(millis() - ledTime > 1000) {
         ledTime = millis();
         digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
+        customPrint(String(val) + " for " + String(timestep-(millis() - startTime)) + "ms");
       }
     }
   }
   // work done
   if (ctr >= numValues) {
     if(runloop) {
-      runloop = false;
       digitalWrite(LED2, LOW);
       digitalWrite(LED1, HIGH);
       customPrint("done in " + String((millis()-runTime)/1000.0) + "s/" + String((millis()-runTime)/60000.0) + "min");
+      runloop = false;
     }
-    blink_r();
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi connection lost. Reconnecting...");
+      WiFi.begin(ssid, password);
+      digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
+      customDelay(500);
+    } else {
+      blink_r();
+    }
   }
 }

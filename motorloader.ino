@@ -3,21 +3,15 @@
 #include "wifi_credentials.h" 
 #include <Servo.h>
 
-// (un)comment for use of webserver
+// uncomment for use of websocket communication
 // used to send additional info (while running) to browser, needs stable internet connection
-// #define WEBSOCKET
-#ifdef WEBSOCKET
-#include "websocket.h"
-#else
-String generateWebSocketHtml(bool append) {return "";}
-#endif
+#define WEBSOCKET
 
 #define LED1 2
 #define LED2 16
 // top view, right side at antenna, 2nd pin from top (D1)
 #define SERVOPIN 5
 
-ESP8266WebServer server(80);
 // using this for the aerostar rvs 80a ESC
 // 0/stop/arm = 1000, max=1900 (?)
 Servo servo;
@@ -25,6 +19,13 @@ Servo servo;
 #define SERVOMIN 1000
 // max full load, > than SERVOMIN
 #define SERVOMAX 1900
+
+ESP8266WebServer server(80);
+#ifdef WEBSOCKET
+#include "websocket.h"
+#else
+String generateWebSocketHtml(bool append) {return "";}
+#endif
 
 const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
@@ -35,7 +36,7 @@ float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
 int ctr = 0;
-int timeRoadmapstep = 1000;
+int timestep = 1000;
 bool readStep = false;
 unsigned long startTime;
 unsigned long runTime;
@@ -227,7 +228,7 @@ void customPrint(String info) {
   // unsigned long startWait = millis();
   while(webSocket.connectedClients() == 0 && ctr < 2) {
     customDelay(25);
-    runTime = millis();
+    // runTime = millis();
   }
   if(runloop) {
     customProgressInfo(info, runTime, maxTime);
@@ -290,7 +291,6 @@ void loop() {
   if(!runloop) {
     servo.writeMicroseconds(SERVOMIN); // stop/arm
   }
-Roadmap
   // work loop
   if(runloop && ctr < numValues) {
     digitalWrite(LED2, digitalRead(LED2) ^ HIGH);

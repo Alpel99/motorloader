@@ -45,7 +45,7 @@ String generateProgressBar(unsigned long start, unsigned long max) {
     }
   }
   String t = max > progress ? generateTimeStr(max-progress) : "00:00"; // est time left
-  res += "|  " + String(ratio*100) + "%" + " eta: " + t + " (m:s)";
+  res += "|  " + String(ratio*100) + "%" + " eta: " + t + " (mm:ss)";
   return res;
 }
 

@@ -55,3 +55,4 @@ const char* password = "ml_pw321"; // password
 
 ## possible ToDo
 - additional error/ignore double/last comma in csv processing
+- python example for discontinuous load curve

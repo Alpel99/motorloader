@@ -189,7 +189,7 @@ void handleStart() {
 
 //generate responsive darkmode css
 String genDarkmodeCss() {
-  return "<style>body{background-color:white;color:black}@media(prefers-color-scheme:dark){body{background-color:darkgray;color:white}}</style>";
+  return "<style>body{background-color:white;color:black}@media(prefers-color-scheme:dark){body{background-color:#1d1e22;color:white}}</style>";
 }
 
 // r in morse = ok

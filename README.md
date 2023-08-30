@@ -16,7 +16,7 @@ Be aware: `half power ~= 0.7 input` this works approx. squared.
 - Option to comment `#define WEBSOCKET` to use this connection to relay additional data while running the simulation (progress etc)
 - Most info is also written as serial output (just not the progress bar)
 
-![Interface](https://i.ibb.co/bHBfbRf/image.png)
+![Interface](https://i.ibb.co/Rg47z4f/Screenshot-from-2023-08-30-19-51-02.png)
 
 ## Setup and Usage
 
@@ -30,7 +30,7 @@ Be aware: `half power ~= 0.7 input` this works approx. squared.
     - input should not end on a comma -> be sure to not copy the last "," from the saved files
 
 - simply connect ground and signal cable from the ESP8266 to the ESC input
-![Setup](https://i.ibb.co/CtkNmnY/20230823-194303.jpg)
+![Setup](https://i.ibb.co/DRPG8SB/20230830-194203.jpg)
 ## _wlan_credentials.h_ boilerplate
 - you can use your mobile hotspot as a local network
 
@@ -57,5 +57,4 @@ const char* password = "ml_pw321"; // password
 
 ## possible ToDo
 - additional error/ignore double/last comma in csv processing
-- python example for discontinuous load curve
 - maybe refactor time status to s instead of ms 

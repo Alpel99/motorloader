@@ -4,6 +4,8 @@ Tool to test generated load curves (python scripts) via an esp8266 as a digital 
 
 Used for load testing of a fuel cell at TU Wien Space Team
 
+Be aware: `half power ~= 0.7 input` this works approx. squared.
+
 ## Features
 
 - Control a servo motor using a web-based interface.

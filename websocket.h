@@ -25,7 +25,7 @@ String generateTimeStr(unsigned long duration) {
   seconds %= 60;
   minutes %= 60;
   String m = minutes > 9 ? String(static_cast<int>(minutes)) : "0" + String(static_cast<int>(minutes));
-  String s = minutes > 9 ? String(static_cast<int>(seconds)) : "0" + String(static_cast<int>(seconds));
+  String s = seconds > 9 ? String(static_cast<int>(seconds)) : "0" + String(static_cast<int>(seconds));
   String r = m + ":" + s;
   return r;
 }

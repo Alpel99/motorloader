@@ -31,7 +31,7 @@ const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
 // doesn't run like that, needs more space
 // ATTENTION: there is some limit on transferred data with the post requests, too precise float numbers lead to not all values being read
-const int MAX_VALUES = 5000;
+const int MAX_VALUES = 8000;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
@@ -45,9 +45,9 @@ unsigned long maxTime = 0;
 
 void handleRoot() {
   String html = genDarkmodeCss() + "<form action='/submit' method='POST'>";
-  html += "CSV Data: <input type='text' name='csv_data'><br>";
+  html += "CSV Data:<br><input type='text' name='csv_data'><br>";
   html += "<input type='submit' value='Submit'></form>";
-
+  html += "Upload a file:<br><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='file'><br><input type='submit' value='Upload'></form>";
   html += "<form method='GET' action='/stop'>";
   html += "<input type='submit' value='Stop Run'></form>";
   html += generateWebSocketHtml(false);
@@ -61,70 +61,8 @@ void handleSubmit() {
 
   String csvData = server.arg("csv_data");
   // Serial.println("sent: " + csvData);
-
-  // Parse CSV data and store in array
-  int startIndex = 0;
-  int endIndex = csvData.indexOf(',');
-  int valueIndex = 0;
-  bool err = false;
-  String csvValue;
-
-  while (endIndex != -1 && valueIndex < MAX_VALUES && !err) {
-    csvValue = csvData.substring(startIndex, endIndex);
-    if (csvValue.length() > 0) {
-      if(isFloat(csvValue)) {
-        csvValues[valueIndex] = csvValue.toFloat();
-      } else err = true;
-    } else err = true;
-    startIndex = endIndex + 1;
-    endIndex = csvData.indexOf(',', startIndex);
-    valueIndex++;
-  }
-
-  if (err) {
-    String t = genDarkmodeCss() + "Error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
-    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
-    server.send(200, "text/html", t);
-    digitalWrite(LED1, HIGH);
-    return;
-  }
-
-  // Store the last value
-  if (valueIndex < MAX_VALUES) {
-    csvValue = csvData.substring(startIndex);
-    if (csvValue.length() > 0) {
-      if(isFloat(csvValue)) {
-        csvValues[valueIndex] = csvValue.toFloat();
-      } else err = true;
-    } else err = true;
-    valueIndex++;
-  } else {
-    String t = genDarkmodeCss() + "Max number of values exceeded or error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
-    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
-    server.send(200, "text/html", t);
-    digitalWrite(LED1, HIGH);
-    return;
-  }
-
-  numValues = valueIndex;
-
-  if (err) {
-    String t = genDarkmodeCss() + "Something went wrong processing the csv data last index: " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
-    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
-    server.send(200, "text/html", t);
-    digitalWrite(LED1, HIGH);
-  } else {
-    String t = genDarkmodeCss() + "Done processing CSV data...<br>";
-    t += "Number of values received: " + String(numValues) + "<br>";
-    t += "Last entry: " + csvValue + "<br>";
-    t += "<form t action='/start' method='POST'>";
-    t += "Timestep(ms): <input type='text' name='timestep'><br>";
-    t += "ReadStep (every 2nd value as delay (cast to int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
-    t += "<input type='submit' value='Start Simulation'></form>";
-    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
-    server.send(200, "text/html", t);
-  }
-  digitalWrite(LED2, LOW);
+  // processCSVData(csvData);
+  processBatchCSVData(csvData, 0, true);
 }
 
 bool isFloat(const String& str) {
@@ -152,6 +90,114 @@ void handleStop() {
   t += "<form action='/'><input type='submit' value='Back to Form'></form>";
   server.send(200, "text/html", t);
   digitalWrite(LED1, HIGH);
+}
+
+void handleUpload() {
+  HTTPUpload& upload = server.upload();
+  static String uploadBuffer;
+  static int batchValueIndex;
+  static int accSize = 0;
+  customPrint(String(accSize) + "/" + String(upload.totalSize));
+
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.println("UPLOAD_FILE_START");
+    uploadBuffer = "";
+    batchValueIndex = 0;
+    accSize = 0;
+
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    Serial.println("UPLOAD_FILE_WRITE " + String(upload.currentSize));
+    uploadBuffer += String((const char*)upload.buf).substring(0, upload.currentSize);
+    accSize += upload.currentSize;
+    Serial.println(uploadBuffer);
+    batchValueIndex = processBatchCSVData(uploadBuffer, batchValueIndex, false);
+    int lastIndex = uploadBuffer.lastIndexOf(',');
+    if (lastIndex != -1) {
+      uploadBuffer = uploadBuffer.substring(lastIndex+1);
+    } else {
+      uploadBuffer = "";
+    }
+    Serial.println("Restof: " + uploadBuffer);
+
+  } else if (upload.status == UPLOAD_FILE_END) {
+    Serial.println("UPLOAD_FILE_END: " + String(upload.totalSize));
+    uploadBuffer += String((const char*)upload.buf).substring(0, upload.currentSize);
+    Serial.println(uploadBuffer);
+    // Check if the last character is a comma and remove it if true
+    if (!uploadBuffer.isEmpty() && uploadBuffer[uploadBuffer.length() - 1] == ',') {
+      uploadBuffer.remove(uploadBuffer.length() - 1); // Remove the last character
+    }
+    batchValueIndex = processBatchCSVData(uploadBuffer, batchValueIndex, true);
+  }
+}
+
+int processBatchCSVData(String csvData, int valueIndex, bool last) {
+  // Parse CSV data and store in array
+  int startIndex = 0;
+  int endIndex = csvData.indexOf(',');
+  bool err = false;
+  String csvValue;
+
+  while (endIndex != -1 && valueIndex < MAX_VALUES && !err) {
+    csvValue = csvData.substring(startIndex, endIndex);
+    if (csvValue.length() > 0) {
+      if(isFloat(csvValue)) {
+        csvValues[valueIndex] = csvValue.toFloat();
+      } else err = true;
+    } else err = true;
+    startIndex = endIndex + 1;
+    endIndex = csvData.indexOf(',', startIndex);
+    valueIndex++;
+  }
+
+  if (err) {
+    String t = genDarkmodeCss() + "Error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+    t += "<form action='/'><input type='submit' value='Back to Form'></form>";
+    server.send(200, "text/html", t);
+    digitalWrite(LED1, HIGH);
+    return valueIndex;
+  }
+
+  // only need to do all of this, if it is the last batch
+  if(last) {
+    // Store the last value
+    if (valueIndex < MAX_VALUES) {
+      csvValue = csvData.substring(startIndex);
+      if (csvValue.length() > 0) {
+        if(isFloat(csvValue)) {
+          csvValues[valueIndex] = csvValue.toFloat();
+        } else err = true;
+      } else err = true;
+      valueIndex++;
+    } else {
+      String t = genDarkmodeCss() + "Max number of values exceeded or error processing CSV data at index " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+      t += "<form action='/'><input type='submit' value='Back to Form'></form>";
+      server.send(200, "text/html", t);
+      digitalWrite(LED1, HIGH);
+      return valueIndex;
+    }
+
+    numValues = valueIndex;
+
+    if (err) {
+      String t = genDarkmodeCss() + "Something went wrong processing the csv data last index: " + String(valueIndex-1) + "<br>Entry: " + csvValue + "<br>";
+      t += "<form action='/'><input type='submit' value='Back to Form'></form>";
+      server.send(200, "text/html", t);
+      digitalWrite(LED1, HIGH);
+    } else {
+      String t = genDarkmodeCss() + "Done processing CSV data...<br>";
+      t += "Number of values received: " + String(numValues) + "<br>";
+      t += "Last entry: " + csvValue + "<br>";
+      t += "<form t action='/start' method='POST'>";
+      t += "Timestep(ms): <input type='text' name='timestep'><br>";
+      t += "ReadStep (every 2nd value as delay (cast to int-ms)): <input type='checkbox' name='stepread'><br>"; // Checkbox for stepread
+      t += "<input type='submit' value='Start Simulation'></form>";
+      t += "<form action='/'><input type='submit' value='Back to Form'></form>";
+      server.send(200, "text/html", t);
+    }
+    digitalWrite(LED2, LOW);
+  }
+  return valueIndex;
 }
 
 void handleStart() {
@@ -278,6 +324,7 @@ void setup() {
   server.on("/submit", HTTP_POST, handleSubmit);
   server.on("/stop", HTTP_GET, handleStop);
   server.on("/start", HTTP_POST, handleStart);
+  server.on("/upload", HTTP_POST,[](){ server.send(200);}, handleUpload);
   server.onNotFound(handleRoot); // Serve the root page for any other URL
 
   digitalWrite(LED1, LOW);

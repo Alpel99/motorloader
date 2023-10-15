@@ -31,7 +31,7 @@ const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
 // doesn't run like that, needs more space
 // ATTENTION: there is some limit on transferred data with the post requests, too precise float numbers lead to not all values being read
-const int MAX_VALUES = 1200;
+const int MAX_VALUES = 5000;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;

@@ -362,7 +362,7 @@ void loop() {
       if(millis() - ledTime > 1000) {
         ledTime = millis();
         digitalWrite(LED1, digitalRead(LED1) ^ HIGH);
-        customPrint(String(val) + " for " + String(timestep-(millis() - startTime)) + "ms");
+        // customPrint(String(val) + " for " + String(timestep-(millis() - startTime)) + "ms");
       }
     }
   }

@@ -58,3 +58,9 @@ const char* password = "ml_pw321"; // password
 ## possible ToDo
 - additional error/ignore double/last comma in csv processing
 - maybe refactor time status to s instead of ms 
+
+
+
+## Pictures
+![esp8266](https://i.ibb.co/tLzcWsK/20230929-ST-H2-DSC-8592-mh-edit.jpg) | ![fuelcell](https://i.ibb.co/0sZrfhH/20230929-ST-H2-DSC-8596-mh-edit.jpg)
+| - | - |

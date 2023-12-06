@@ -31,7 +31,7 @@ const char* hostname1 = "motorloader";
 // 12000: Variables and constants in RAM (global, static), used 77592 / 80192 bytes (96%)
 // doesn't run like that, needs more space
 // ATTENTION: there is some limit on transferred data with the post requests, too precise float numbers lead to not all values being read
-const int MAX_VALUES = 8000;
+const int MAX_VALUES = 4000;
 float csvValues[MAX_VALUES];
 int numValues = 0;
 bool runloop = false;
@@ -59,6 +59,8 @@ void handleSubmit() {
   digitalWrite(LED2, HIGH);
   digitalWrite(LED1, LOW);
 
+  // Serial.println("Server.args():");
+  // Serial.println(server.args());
   String csvData = server.arg("csv_data");
   // Serial.println("sent: " + csvData);
   // processCSVData(csvData);

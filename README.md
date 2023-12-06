@@ -4,7 +4,7 @@ Tool to test generated load curves (python scripts) via an esp8266 as a digital 
 
 Used for load testing of a fuel cell at TU Wien Space Team
 
-Be aware: `half power ~= 0.7 input` this works approx. squared.
+Be aware: `half power ~= 0.7 input` this works approx. squared. (?)
 
 ## Features
 
@@ -56,5 +56,10 @@ const char* password = "ml_pw321"; // password
     - blinking: changes on/off every time a new value is given to the ESC
 
 ## possible ToDo
-- additional error/ignore double/last comma in csv processing
+- additional error/ignore double/last comma in csv processing (done)
 - maybe refactor time status to s instead of ms 
+- use SPIFFS (flash storage) instead of RAM to store parts of data and read again
+
+## Pictures
+![esp8266](https://i.ibb.co/tLzcWsK/20230929-ST-H2-DSC-8592-mh-edit.jpg) | ![fuelcell](https://i.ibb.co/0sZrfhH/20230929-ST-H2-DSC-8596-mh-edit.jpg)
+| - | - |

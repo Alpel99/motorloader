@@ -51,18 +51,26 @@ def getErr(err):
         return None
 
 if __name__ == '__main__':
-    err = 0x0000F000
-    r = getErr(err)
-    print(r)
+    if(len(sys.argv) == 1):
+        err = 0x00000010
+        r = getErr(err)
+        print(err)
+        print(r)
     if(len(sys.argv) > 1):
-        file = sys.argv[1]
-        with open(file, 'r') as f:
-            i = -1
-            while(True):
-                last_line = f.readlines()[i]
-                i-=1
-                for e in last_line.split(","):
-                    if "0x" in e:
-                        print(e)
-                        print(getErr(int(e,16)))
-                        exit() # yes this is scuffed, but it works
+        try:
+            h = sys.argv[1]
+            print(h)
+            print(getErr(int(h, 16)))
+            exit()
+        except ValueError:
+            file = sys.argv[1]
+            with open(file, 'r') as f:
+                i = -1
+                while(True):
+                    last_line = f.readlines()[i]
+                    i-=1
+                    for e in last_line.split(","):
+                        if "0x" in e:
+                            print(e)
+                            print(getErr(int(e,16)))
+                            exit() # yes this is scuffed, but it works

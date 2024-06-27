@@ -21,8 +21,8 @@ def genSinCurve(steps, height, dist):
     return data
 
 r = []
-for h in [0.1,0.2,0.3,0.4]:
-    for d in [50, 100, 200, 400, 800, 1500]:
+for h in [0.1,0.2]:
+    for d in [200, 400, 800, 1500]:
         r += genSinCurve(50, h, d)
 
 print(len(r))
